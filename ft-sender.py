@@ -1,0 +1,69 @@
+"""
+FTx sender to PSKReporter
+
+Usage:
+  ft-sender --callsign <callsign> --locator <locator> [--antenna <antenna>] <logfile> [<mode>]
+  ft-sender -h | --help
+
+Options:
+  -h --help     Show this screen.
+  --callsign    The callsign of the reporter
+  --locator     The locator for the radio -- at least 6 characters
+  --antenna     The antenna used on the radio
+"""
+from pskreporter import PskReporter
+import re
+from datetime import datetime
+import subprocess
+from docopt import docopt
+import sys
+
+
+
+def submit(stream, pskreporter, mode):
+    r = re.compile(r'(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$')
+    cq = re.compile(r'CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$')
+    cq2 = re.compile(r'CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) *(?P<locator>)$')
+    tx2 = re.compile(r'(?P<their_callsign>([A-Z0-9/-]{3,})|(<\.\.\.>)) (?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$')
+    for line in stream:
+        # 2024/05/02 02:01:00  18 +1.44 7,075,718.8 ~ CQ NF3R FN20
+        # 2024/05/02 02:01:00  18 +0.88 7,074,100.0 ~ CQ EA7LZ IM76
+
+        m = r.search(line.decode("utf-8"))
+        if m:
+            msg = m.group('msg')
+            match = cq.search(msg)
+            if not match:
+                match = cq2.search(msg)
+            if not match:
+                match = tx2.search(msg)
+                if match and match.group('locator') == "RR73":
+                    match = None
+            if match:
+                ts = datetime.strptime(m.group('ts'), "%Y/%m/%d %H:%M:%S").timestamp()
+                snr = -int(m.group('snr'))
+                freq = float(m.group('freq').replace(",", ""))
+
+                pskreporter.spot(callsign=match.group('callsign'), mode=mode, timestamp=ts, frequency=freq, db=snr, locator=match.group('locator'))
+
+
+if __name__ == "__main__":
+    args = docopt(__doc__)
+
+    file = args['<logfile>']
+    mode = args['<mode>']
+
+    if not mode:
+        if 'ft8' in file.lower():
+            mode = 'ft8'
+        elif 'ft4' in file.lower():
+            mode = 'ft4'
+
+    if not mode:
+        sys.exit("Need to prove the mode argument")
+
+
+    pskreporter = PskReporter(callsign=args['<callsign>'].upper(), grid=args['<locator>'], antenna=args['<antenna>'])
+
+    proc = subprocess.Popen(["tail", "-F", file], stdout=subprocess.PIPE)
+    submit(proc.stdout, pskreporter, mode.upper())
