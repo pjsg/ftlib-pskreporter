@@ -1,0 +1,9 @@
+[project]
+name = "pskreporter-sender"
+version = "1.0.0"  # Update with your program's version
+description = "PSK Reporter Sender"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+

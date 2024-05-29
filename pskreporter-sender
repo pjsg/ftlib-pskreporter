@@ -2,8 +2,8 @@
 FTx sender to PSKReporter
 
 Usage:
-  ft-sender --callsign <callsign> --locator <locator> [--antenna <antenna>] <logfile> [<mode>]
-  ft-sender -h | --help
+  pskreporter-sender --callsign <callsign> --locator <locator> [--antenna <antenna>] <logfile> [<mode>]
+  pskreporter-sender -h | --help
 
 Options:
   -h --help     Show this screen.

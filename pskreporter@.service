@@ -1,0 +1,23 @@
+# Systemd unit to upload FT8 spots to pskreporter
+# Philip Gladstone, May 2024
+
+[Unit]
+Description=ft8-pskreporter
+After=network-online.target
+Requires=network-online.target
+
+[Service]
+Nice=10
+User=recordings
+Group=radio
+Type=simple
+EnvironmentFile=/etc/radio/%i-pskreporter.conf
+PermissionsStartOnly=true
+CPUSchedulingPolicy=batch
+ExecStart=python3 /usr/local/bin/pskreporter-sender --callsign $CALLSIGN --locator $LOCATOR --antenna $ANTENNA $FILE $MODE
+Restart=always
+RestartSec=5
+TimeoutStopSec=10
+
+[Install]
+WantedBy=multi-user.target
