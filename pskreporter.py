@@ -43,26 +43,26 @@ class PskReporter(object):
         if self.timer:
             return
         delay = PskReporter.interval + random.uniform(0, 15)
-        logging.info(
-            "scheduling next pskreporter upload in %3.2f seconds", delay)
+        logging.info("scheduling next pskreporter upload in %3.2f seconds", delay)
         self.timer = threading.Timer(delay, self.upload)
         self.timer.name = "psk.uploader-%s" % self.station
         self.timer.start()
 
     def spotEquals(self, s1, s2):
         # s1 is the new spot
-        keys = ["callsign", "timestamp",
-                "locator", "db", "freq", "mode"]
+        keys = ["callsign", "timestamp", "locator", "db", "freq", "mode"]
 
-        return (s1['callsign'] == s2['callsign'] and
-               abs(s1['timestamp'] - s2['timestamp']) < 900 and
-               (s1['locator'] == s2['locator'] or not s1['locator']) and
-               abs(s1['freq'] - s2['freq']) < 10000 and
-               s1['mode'] == s2['mode'])
+        return (
+            s1["callsign"] == s2["callsign"]
+            and abs(s1["timestamp"] - s2["timestamp"]) < 900
+            and (s1["locator"] == s2["locator"] or not s1["locator"])
+            and abs(s1["freq"] - s2["freq"]) < 10000
+            and s1["mode"] == s2["mode"]
+        )
 
     def addSpot(self, spot):
         self.spots.append(spot)
-        ts = spot['timestamp']
+        ts = spot["timestamp"]
         if ts not in self.oldSpots:
             self.oldSpots[ts] = []
         self.oldSpots[ts].append(spot)
@@ -74,10 +74,10 @@ class PskReporter(object):
         spot = {
             "callsign": callsign,
             "mode": mode,
-            "locator": locator or '',
+            "locator": locator or "",
             "freq": frequency,
             "db": -128 if db is None else db,
-            "timestamp": timestamp
+            "timestamp": timestamp,
         }
         with self.spotLock:
             if any(x for x in self.getOldSpots() if self.spotEquals(spot, x)):
@@ -132,6 +132,7 @@ class Uploader(object):
             i = 0
             while i < len(l):
                 length = n
+
                 def inner(l, j, remaining):
                     while j < len(l) and remaining >= len(l[j]):
                         remaining -= len(l[j])
@@ -185,7 +186,6 @@ class Uploader(object):
         except Exception:
             logging.exception("Error while encoding spot for pskreporter")
             return None
-        
 
     def getReceiverInformationHeader(self):
         return bytes(
@@ -212,11 +212,13 @@ class Uploader(object):
         antennaInformation = self.station["antenna"] if "antenna" in self.station else ""
         decodingSoftware = "N1DQ-Importer-KA9Q-Radio"
 
-        body = [b for s in [callsign, locator, decodingSoftware,
-                            antennaInformation] for b in self.encodeString(s)]
+        body = [
+            b
+            for s in [callsign, locator, decodingSoftware, antennaInformation]
+            for b in self.encodeString(s)
+        ]
         body = self.pad(body, 4)
-        body = bytes(Uploader.receiverDelimiter +
-                     list((len(body) + 4).to_bytes(2, "big")) + body)
+        body = bytes(Uploader.receiverDelimiter + list((len(body) + 4).to_bytes(2, "big")) + body)
         return body
 
     def getSenderInformationHeader(self):
@@ -253,17 +255,4 @@ class Uploader(object):
     def padBytes(self, b, l):
         return b + bytes([0x00 for _ in range(0, -1 * len(b) % l)])
 
-if __name__ == "__main__":
-    rep = PskReporter('N1DQ', 'FN42hn', '200 ft longwire')
-
-    rep.spot(
-        callsign = "N1DQ-1",
-        mode = "FT8",
-        locator = "FN42hn",
-        frequency = 14070000,
-        db = 12,
-        timestamp = time.time()
-        )
-
-    rep.upload()
 
