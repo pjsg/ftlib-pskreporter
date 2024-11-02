@@ -31,7 +31,7 @@ class PskReporter(object):
         self.timer = None
 
     def getOldSpots(self):
-        cutoff = time.time() - 900
+        cutoff = time.time() - 1200
         for t in list(self.oldSpots.keys()):
             if t < cutoff:
                 del self.oldSpots[t]
@@ -54,7 +54,7 @@ class PskReporter(object):
 
         return (
             s1["callsign"] == s2["callsign"]
-            and abs(s1["timestamp"] - s2["timestamp"]) < 900
+            and abs(s1["timestamp"] - s2["timestamp"]) < 1200
             and (s1["locator"] == s2["locator"] or not s1["locator"])
             and abs(s1["freq"] - s2["freq"]) < 10000
             and s1["mode"] == s2["mode"]
