@@ -160,9 +160,9 @@ class Uploader(object):
             length = header_length + len(sInfo)
             header = self.getHeader(length)
             yield header + rHeader + sHeader + rInfo + sInfo
+            self.sequence += len(chunk)
 
     def getHeader(self, length):
-        self.sequence += 1
         return bytes(
             # protocol version
             [0x00, 0x0A]
@@ -198,7 +198,7 @@ class Uploader(object):
             [0x00, 0x03, 0x00, 0x2C]
             + Uploader.receiverDelimiter
             # number of fields
-            + [0x00, 0x04, 0x00, 0x00]
+            + [0x00, 0x04, 0x00, 0x01]
             # receiverCallsign
             + [0x80, 0x02, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F]
             # receiverLocator
