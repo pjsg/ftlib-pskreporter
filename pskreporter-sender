@@ -3,26 +3,74 @@
 FTx sender to PSKReporter
 
 Usage:
-  pskreporter-sender --callsign <callsign> --locator <locator> [--antenna <antenna>] <logfile> [<mode>]
+  pskreporter-sender [options]  <logfile> [<mode>]
   pskreporter-sender -h | --help
 
 Options:
   -h --help     Show this screen.
-  --callsign    The callsign of the reporter
-  --locator     The locator for the radio -- at least 6 characters
-  --antenna     The antenna used on the radio
+  --no-send     Don't send, just print the spots
+  --callsign=<callsign>    The callsign of the reporter
+  --locator=<locator>     The locator for the radio -- at least 6 characters
+  --antenna=<antenna>     The antenna used on the radio
 """
 from pskreporter import PskReporter
 import re
-from datetime import datetime
+from datetime import datetime, time
 import subprocess
 from docopt import docopt
 import sys
 
 
+def get_unix_timestamp(hhmm: str) -> int:
+    # Get the current date and time
+    now = datetime.now()
+    today = now.date()
+
+    # Parse the HHMM string
+    hours = int(hhmm[:2])
+    minutes = int(hhmm[2:])
+
+    # Create a datetime object for today at the specified time
+    specified_time = datetime.combine(today, time(hours, minutes))
+
+    # If the specified time is in the past, move to the next day
+    if specified_time > now:
+        specified_time -= datetime.timedelta(days=1)
+
+    # Get the Unix timestamp
+    unix_timestamp = int(specified_time.timestamp())
+
+    return unix_timestamp
+
+
+def do_wspr(stream, pskreporter, mode):
+    r = re.compile(
+        r"(?P<ts>[0-9]{4}) +(?P<u1>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
+    )
+    for line in stream:
+        # 0044 -26  0.2  14.097059  0  W5NR EM10 23
+
+        m = r.search(line.decode("utf-8"))
+        if m:
+            ts = get_unix_timestamp(m.group("ts"))
+            snr = 0  # -int(m.group("snr"))
+            freq = 1000000.0 * float(m.group("freq"))
+
+            pskreporter.spot(
+                callsign=m.group("callsign"),
+                mode=mode,
+                timestamp=ts,
+                frequency=freq,
+                db=snr,
+                locator=m.group("locator"),
+            )
+        elif not line.startswith(b"<Decode"):
+            print(line)
+
+
 def submit(stream, pskreporter, mode):
     r = re.compile(
-        r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
+        r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[-+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
     )
     cq = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$")
     cq2 = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) *(?P<locator>)$")
@@ -69,13 +117,21 @@ if __name__ == "__main__":
             mode = "ft8"
         elif "ft4" in file.lower():
             mode = "ft4"
+        elif "wspr" in file.lower():
+            mode = "wspr"
 
     if not mode:
-        sys.exit("Need to prove the mode argument")
+        sys.exit("Need to provide the mode argument")
 
     pskreporter = PskReporter(
-        callsign=args["<callsign>"].upper(), grid=args["<locator>"], antenna=args["<antenna>"]
+        callsign=args["--callsign"].upper(),
+        grid=args["--locator"],
+        antenna=args["--antenna"],
+        dummy=args["--no-send"],
     )
 
     proc = subprocess.Popen(["tail", "-F", file], stdout=subprocess.PIPE)
-    submit(proc.stdout, pskreporter, mode.upper())
+    if mode == "wspr":
+        do_wspr(proc.stdout, pskreporter, mode.upper())
+    else:
+        submit(proc.stdout, pskreporter, mode.upper())

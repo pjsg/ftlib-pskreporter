@@ -22,13 +22,14 @@ class PskReporter(object):
     def stop():
         [psk.cancelTimer() for psk in PskReporter.sharedInstance.values()]
 
-    def __init__(self, callsign: str, grid: str, antenna: str):
+    def __init__(self, callsign: str, grid: str, antenna: str, dummy: bool = False):
         self.spots = []
         self.oldSpots = {}  # Indexed by timestamp
         self.spotLock = threading.Lock()
         self.station = {"callsign": callsign, "grid": grid, "antenna": antenna}
         self.uploader = Uploader(self.station)
         self.timer = None
+        self.dummy = dummy
 
     def getOldSpots(self):
         cutoff = time.time() - 1200
@@ -79,6 +80,10 @@ class PskReporter(object):
             "db": -128 if db is None else db,
             "timestamp": timestamp,
         }
+        if self.dummy:
+            print(spot)
+            return
+
         with self.spotLock:
             if any(x for x in self.getOldSpots() if self.spotEquals(spot, x)):
                 # dupe
