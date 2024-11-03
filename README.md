@@ -7,15 +7,17 @@ To install, various files need to be edited and then copied:
 
 ```
 sudo cp ft*conf /etc/radio
+sudo cp wspr*conf /etc/radio
 sudo cp pskreporter@.service /etc/systemd/system/
 ```
 
-By default, the file `/etc/radio/ft-pskreporter.conf` needs to be modified to enter OP's callsign, locator and antenna information. Once that
+By default, the file `/etc/radio/*-pskreporter.conf` needs to be modified to enter OP's callsign, locator and antenna information. Once that
 is done, the services can be started:
 
 ```
 sudo systemctl start pskreporter@ft4 
 sudo systemctl start pskreporter@ft8 
+sudo systemctl start pskreporter@wspr 
 ```
 
 If this works, then you probably want to do
@@ -23,4 +25,5 @@ If this works, then you probably want to do
 ```
 sudo systemctl enable pskreporter@ft4 
 sudo systemctl enable pskreporter@ft8 
+sudo systemctl enable pskreporter@wspr 
 ```

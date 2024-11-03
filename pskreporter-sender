@@ -45,7 +45,7 @@ def get_unix_timestamp(hhmm: str) -> int:
 
 def do_wspr(stream, pskreporter, mode):
     r = re.compile(
-        r"(?P<ts>[0-9]{4}) +(?P<u1>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
+        r"(?P<ts>[0-9]{4}) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
     )
     for line in stream:
         # 0044 -26  0.2  14.097059  0  W5NR EM10 23
@@ -53,7 +53,7 @@ def do_wspr(stream, pskreporter, mode):
         m = r.search(line.decode("utf-8"))
         if m:
             ts = get_unix_timestamp(m.group("ts"))
-            snr = 0  # -int(m.group("snr"))
+            snr = -int(m.group("snr"))
             freq = 1000000.0 * float(m.group("freq"))
 
             pskreporter.spot(
