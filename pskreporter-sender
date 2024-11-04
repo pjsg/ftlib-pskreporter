@@ -33,7 +33,7 @@ def get_unix_timestamp(hhmm: str) -> int:
     # Create a datetime object for today at the specified time
     specified_time = datetime.combine(today, time(hours, minutes))
 
-    # If the specified time is in the past, move to the next day
+    # If the specified time is in the future, move to the previous day
     if specified_time > now:
         specified_time -= datetime.timedelta(days=1)
 
@@ -44,16 +44,25 @@ def get_unix_timestamp(hhmm: str) -> int:
 
 
 def do_wspr(stream, pskreporter, mode):
-    r = re.compile(
+    r1 = re.compile(
         r"(?P<ts>[0-9]{4}) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
+    )
+    r2 = re.compile(
+        r"(?P<ymd>[0-9]{6}) +(?P<ts>[0-9]{4}) +(?P<u1>[-.0-9]+) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+)"
     )
     for line in stream:
         # 0044 -26  0.2  14.097059  0  W5NR EM10 23
+        # or
+        # 241104 0024  0.21 -18  0.02   18.1060273 N3BBF          FM19   37  0    2
 
-        m = r.search(line.decode("utf-8"))
+
+        m = r1.search(line.decode("utf-8"))
+        if not m:
+            m = r2.search(line.decode("utf-8"))
+
         if m:
             ts = get_unix_timestamp(m.group("ts"))
-            snr = -int(m.group("snr"))
+            snr = int(m.group("snr"))
             freq = 1000000.0 * float(m.group("freq"))
 
             pskreporter.spot(
