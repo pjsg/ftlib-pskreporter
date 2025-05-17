@@ -22,12 +22,12 @@ class PskReporter(object):
     def stop():
         [psk.cancelTimer() for psk in PskReporter.sharedInstance.values()]
 
-    def __init__(self, callsign: str, grid: str, antenna: str, dummy: bool = False):
+    def __init__(self, callsign: str, grid: str, antenna: str, dummy: bool = False, tcp: bool = False):
         self.spots = []
         self.oldSpots = {}  # Indexed by timestamp
         self.spotLock = threading.Lock()
         self.station = {"callsign": callsign, "grid": grid, "antenna": antenna}
-        self.uploader = Uploader(self.station)
+        self.uploader = Uploader(self.station, tcp=tcp)
         self.timer = None
         self.dummy = dummy
 
@@ -115,19 +115,44 @@ class Uploader(object):
     receiverDelimiter = [0x99, 0x92]
     senderDelimiter = [0x99, 0x93]
 
-    def __init__(self, station):
+    def __init__(self, station, tcp: bool = False):
         self.station = station
         # logging.debug("Station: %s", self.station)
         self.sequence = 0
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        if tcp:
+            self.upload = self.tcp_upload 
+            self.socket = None
+        else:
+            self.upload = self.udp_upload
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
         self.id = os.urandom(4)
 
-    def upload(self, spots):
-        logging.warning("uploading %i spots               ", len(spots))
+    def udp_upload(self, spots):
+        logging.info("uploading %i spots using UDP", len(spots))
         for packet in self.getPackets(spots):
             self.socket.sendto(packet, ("report.pskreporter.info", 4739))
 
-    def getPackets(self, spots):
+    def tcp_upload(self, spots):
+        logging.info("uploading %i spots using TCP", len(spots))
+        for packet in self.getPackets(spots, max_packet_length=25000):
+            sent_attempt = 0
+            while sent_attempt < 5:
+                sent_attempt += 1
+                try:
+                    if not self.socket:
+                        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                        self.socket.connect(("report.pskreporter.info", 4739))
+                        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                        self.socket_connected = True
+
+                    self.socket.send(packet)
+                    break
+                except Exception:
+                    self.socket.close()
+                    self.socket = None
+
+    def getPackets(self, spots, max_packet_length: int = 1400):
         encoded = [self.encodeSpot(spot) for spot in spots]
         # filter out any erroneous encodes
         encoded = [e for e in encoded if e is not None]
@@ -155,7 +180,7 @@ class Uploader(object):
         packets = []
         header_length = 16 + len(rHeader) + len(sHeader) + len(rInfo)
         # 75 seems to be a safe bet
-        for chunk in chunks(encoded, 1400 - header_length):
+        for chunk in chunks(encoded, max_packet_length - header_length):
             sInfo = self.getSenderInformation(chunk)
             length = header_length + len(sInfo)
             header = self.getHeader(length)

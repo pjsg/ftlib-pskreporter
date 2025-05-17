@@ -9,6 +9,7 @@ Usage:
 Options:
   -h --help     Show this screen.
   --no-send     Don't send, just print the spots
+  --tcp         Use TCP to send reports
   --callsign=<callsign>    The callsign of the reporter
   --locator=<locator>     The locator for the radio -- at least 6 characters
   --antenna=<antenna>     The antenna used on the radio
@@ -137,6 +138,7 @@ if __name__ == "__main__":
         grid=args["--locator"],
         antenna=args["--antenna"],
         dummy=args["--no-send"],
+        tcp=args["--tcp"],
     )
 
     proc = subprocess.Popen(["tail", "-F", file], stdout=subprocess.PIPE)
