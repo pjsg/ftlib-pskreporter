@@ -147,7 +147,8 @@ class Uploader(object):
 
     def udp_upload(self, spots: list) -> list | None:
         logging.info("uploading %i spots using UDP", len(spots))
-        for packet, _ in self.getPackets(spots):
+        for packet, chunk in self.getPackets(spots):
+            self.sequence += len(chunk)
             self.socket.sendto(packet, SERVER_NAME)
 
         return None
@@ -167,6 +168,7 @@ class Uploader(object):
                         self.socket_connected = True
 
                     self.socket.send(packet)
+                    self.sequence += len(chunk)
                     sent_attempt = 0
                     break
                 except Exception:
@@ -216,7 +218,6 @@ class Uploader(object):
             length = header_length + len(sInfo)
             header = self.getHeader(length)
             yield header + rHeader + sHeader + rInfo + sInfo, [to_spot[item] for item in chunk]
-            self.sequence += len(chunk)
 
     def getHeader(self, length):
         return bytes(
@@ -271,7 +272,7 @@ class Uploader(object):
         callsign = self.station["callsign"]
         locator = self.station["grid"]
         antennaInformation = self.station["antenna"] if "antenna" in self.station else ""
-        decodingSoftware = "N1DQ-Importer-KA9Q-Radio"
+        decodingSoftware = "N1DQ-Importer-KA9Q-Radio/1.0"
 
         body = [
             b
