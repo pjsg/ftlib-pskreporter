@@ -5,6 +5,13 @@ import time
 import random
 import socket
 
+SERVER_NAME = ("report.pskreporter.info", 4739)
+
+logging.basicConfig(
+        format="%(levelname)s:%(name)s:%(asctime)s %(message)s",
+        level=logging.WARNING,
+        datefmt='%Y-%m-%d %H:%M:%S')
+
 
 class PskReporter(object):
     sharedInstance = {}
@@ -100,7 +107,17 @@ class PskReporter(object):
                 spots = self.spots
                 self.spots = []
             if spots:
-                self.uploader.upload(spots)
+                # Filter out very old spots
+                cutoff = time.time() - 3000;
+                spot_count = len(spots)
+                spots = [x for x in spots if x["timestamp"] >= cutoff]
+                if len(spots) < spot_count:
+                    logging.warning(f"Dropping {spot_count - len(spots)} spots as too old (without connectivity). {len(spots)} left.")
+                unsent = self.uploader.upload(spots)
+                if unsent:
+                    # We want to save these for later
+                    with self.spotLock:
+                        self.spots = unsent + self.spots
         except Exception:
             logging.exception("Failed to upload spots")
 
@@ -128,34 +145,48 @@ class Uploader(object):
 
         self.id = os.urandom(4)
 
-    def udp_upload(self, spots):
+    def udp_upload(self, spots: list) -> list | None:
         logging.info("uploading %i spots using UDP", len(spots))
-        for packet in self.getPackets(spots):
-            self.socket.sendto(packet, ("report.pskreporter.info", 4739))
+        for packet, _ in self.getPackets(spots):
+            self.socket.sendto(packet, SERVER_NAME)
 
-    def tcp_upload(self, spots):
+        return None
+
+    def tcp_upload(self, spots: list) -> list | None:
         logging.info("uploading %i spots using TCP", len(spots))
-        for packet in self.getPackets(spots, max_packet_length=25000):
-            sent_attempt = 0
+        failed_to_send = []
+        sent_attempt = 0
+        for packet, chunk in self.getPackets(spots, max_packet_length=25000):
             while sent_attempt < 5:
                 sent_attempt += 1
                 try:
                     if not self.socket:
                         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                        self.socket.connect(("report.pskreporter.info", 4739))
+                        self.socket.connect(SERVER_NAME)
                         self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
                         self.socket_connected = True
 
                     self.socket.send(packet)
+                    sent_attempt = 0
                     break
                 except Exception:
                     self.socket.close()
                     self.socket = None
+            else:
+                failed_to_send.extend(chunk);
+
+        if failed_to_send:
+            logging.warning(f"Failed to send {len(failed_to_send)} spots. Will retry later.")
+        return failed_to_send
 
     def getPackets(self, spots, max_packet_length: int = 1400):
-        encoded = [self.encodeSpot(spot) for spot in spots]
-        # filter out any erroneous encodes
-        encoded = [e for e in encoded if e is not None]
+        encoded = []
+        to_spot = {}
+        for spot in spots:
+            enc = self.encodeSpot(spot)
+            if enc:
+                encoded.append(enc)
+                to_spot[enc] = spot
 
         def chunks(l, n):
             """Yield successive chunks from with a total length < n"""
@@ -184,7 +215,7 @@ class Uploader(object):
             sInfo = self.getSenderInformation(chunk)
             length = header_length + len(sInfo)
             header = self.getHeader(length)
-            yield header + rHeader + sHeader + rInfo + sInfo
+            yield header + rHeader + sHeader + rInfo + sInfo, [to_spot[item] for item in chunk]
             self.sequence += len(chunk)
 
     def getHeader(self, length):
@@ -245,7 +276,7 @@ class Uploader(object):
         body = [
             b
             for s in [callsign, locator, decodingSoftware, antennaInformation]
-            for b in self.encodeString(s)
+            for b in self.encodeString(s or '')
         ]
         body = self.pad(body, 4)
         body = bytes(Uploader.receiverDelimiter + list((len(body) + 4).to_bytes(2, "big")) + body)
