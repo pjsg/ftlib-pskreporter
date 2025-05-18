@@ -46,10 +46,10 @@ def get_unix_timestamp(hhmm: str) -> int:
 
 def do_wspr(stream, pskreporter, mode):
     r1 = re.compile(
-        r"(?P<ts>[0-9]{4}) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
+        r"(?P<ts>[0-9]{4}) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9][A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
     )
     r2 = re.compile(
-        r"(?P<ymd>[0-9]{6}) +(?P<ts>[0-9]{4}) +(?P<u1>[-.0-9]+) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +<?(?P<callsign>[A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+)"
+        r"(?P<ymd>[0-9]{6}) +(?P<ts>[0-9]{4}) +(?P<u1>[-.0-9]+) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +<?(?P<callsign>[A-Z0-9][A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+)"
     )
     for line in stream:
         # 0044 -26  0.2  14.097059  0  W5NR EM10 23

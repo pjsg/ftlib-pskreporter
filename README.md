@@ -1,5 +1,5 @@
-This is a systemd service that reads the output from the KA9Q ft_lib when it is decoding FT4 and FT8. 
-It converts this output into data suitable for PSKReporter and submits it.
+This is a systemd service that reads the output from the KA9Q ft_lib when it is decoding FT4 and FT8. It converts this output
+into data suitable for PSKReporter and submits it. The current version uses TCP in order to improve reliability.
 
 To install, various files need to be edited and then copied:
 
