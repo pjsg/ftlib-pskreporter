@@ -75,7 +75,7 @@ class PskReporter(object):
             self.oldSpots[ts] = []
         self.oldSpots[ts].append(spot)
 
-    def spot(self, callsign, frequency, mode, timestamp=0, db=None, locator=None):
+    def spot(self, callsign, frequency, mode, timestamp=0, db=None, locator=None, hexbytes=None):
         if not timestamp:
             timestamp = time.time()
 
@@ -86,6 +86,7 @@ class PskReporter(object):
             "freq": frequency,
             "db": -128 if db is None else db,
             "timestamp": timestamp,
+            "bytes": bytes.fromhex(hexbytes or ''),
         }
         if self.dummy:
             print(spot)
@@ -130,7 +131,7 @@ class PskReporter(object):
 
 class Uploader(object):
     receiverDelimiter = [0x99, 0x92]
-    senderDelimiter = [0x99, 0x93]
+    senderDelimiter = [0x99, 0x94]
 
     def __init__(self, station, tcp: bool = False):
         self.station = station
@@ -212,7 +213,6 @@ class Uploader(object):
 
         packets = []
         header_length = 16 + len(rHeader) + len(sHeader) + len(rInfo)
-        # 75 seems to be a safe bet
         for chunk in chunks(encoded, max_packet_length - header_length):
             sInfo = self.getSenderInformation(chunk)
             length = header_length + len(sInfo)
@@ -232,6 +232,9 @@ class Uploader(object):
     def encodeString(self, s):
         return [len(s)] + list(s.encode("utf-8"))
 
+    def encodeBytes(self, b):
+        return [len(b)] + list(b)
+
     def encodeSpot(self, spot):
         try:
             return bytes(
@@ -244,6 +247,7 @@ class Uploader(object):
                 # informationsource. 1 means "automatically extracted
                 + [0x01]
                 + list(int(spot["timestamp"]).to_bytes(4, "big"))
+                + self.encodeBytes(spot["bytes"])
             )
         except Exception:
             logging.exception("Error while encoding spot for pskreporter")
@@ -272,7 +276,7 @@ class Uploader(object):
         callsign = self.station["callsign"]
         locator = self.station["grid"]
         antennaInformation = self.station["antenna"] if "antenna" in self.station else ""
-        decodingSoftware = "N1DQ-Importer-KA9Q-Radio/1.0"
+        decodingSoftware = "N1DQ-KA9Q-Radio/1.1"
 
         body = [
             b
@@ -286,10 +290,10 @@ class Uploader(object):
     def getSenderInformationHeader(self):
         return bytes(
             # id, length
-            [0x00, 0x02, 0x00, 0x3C]
+            [0x00, 0x02, 0x00, 0x44]
             + Uploader.senderDelimiter
             # number of fields
-            + [0x00, 0x07]
+            + [0x00, 0x08]
             # senderCallsign
             + [0x80, 0x01, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F]
             # frequency
@@ -304,6 +308,8 @@ class Uploader(object):
             + [0x80, 0x0B, 0x00, 0x01, 0x00, 0x00, 0x76, 0x8F]
             # flowStartSeconds
             + [0x00, 0x96, 0x00, 0x04]
+            # messageBits
+            + [0x80, 0x0E, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F]
         )
 
     def getSenderInformation(self, chunk):
