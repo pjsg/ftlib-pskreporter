@@ -52,31 +52,46 @@ def do_wspr(stream, pskreporter, mode):
     r2 = re.compile(
         r"(?P<ymd>[0-9]{6}) +(?P<ts>[0-9]{4}) +(?P<u1>[-.0-9]+) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +<?(?P<callsign>[A-Z0-9][A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+)"
     )
+    raw_bits_r = re.compile(r"^(?P<msg>.*?)\s+#(?P<hex>[0-9a-fA-F]{16,})")
     for line in stream:
         # 0044 -26  0.2  14.097059  0  W5NR EM10 23
         # or
         # 241104 0024  0.21 -18  0.02   18.1060273 N3BBF          FM19   37  0    2
 
+        original_line = line.decode("utf-8").rstrip()
 
-        m = r1.search(line.decode("utf-8"))
-        if not m:
-            m = r2.search(line.decode("utf-8"))
+        line = original_line
 
-        if m:
-            ts = get_unix_timestamp(m.group("ts"))
-            snr = int(m.group("snr"))
-            freq = 1000000.0 * float(m.group("freq"))
+        try:
+            m = raw_bits_r.search(line)
+            if m:
+                raw_hex = m.group('hex')
+                line = m.group('msg')
+            else:
+                raw_hex = None
+                
+            m = r1.search(line)
+            if not m:
+                m = r2.search(line)
 
-            pskreporter.spot(
-                callsign=m.group("callsign"),
-                mode=mode,
-                timestamp=ts,
-                frequency=freq,
-                db=snr,
-                locator=m.group("locator"),
-            )
-        elif not line.startswith(b"<Decode"):
-            print(line)
+            if m:
+                ts = get_unix_timestamp(m.group("ts"))
+                snr = int(m.group("snr"))
+                freq = 1000000.0 * float(m.group("freq"))
+
+                pskreporter.spot(
+                    callsign=m.group("callsign"),
+                    mode=mode,
+                    timestamp=ts,
+                    frequency=freq,
+                    db=snr,
+                    locator=m.group("locator"),
+                    hexbytes=raw_hex,
+                )
+            elif not line.startswith(b"<Decode"):
+                print(line)
+        except Exception as e:
+            logging.error(f"Failed to create spot ({e}): {original_line}")
 
 
 def submit(stream, pskreporter, mode):
