@@ -14,6 +14,7 @@ Options:
   --locator=<locator>     The locator for the radio -- at least 6 characters
   --antenna=<antenna>     The antenna used on the radio
 """
+
 from pskreporter import PskReporter
 import re
 from datetime import datetime, time
@@ -65,11 +66,11 @@ def do_wspr(stream, pskreporter, mode):
         try:
             m = raw_bits_r.search(line)
             if m:
-                raw_hex = m.group('hex')
-                line = m.group('msg')
+                raw_hex = m.group("hex")
+                line = m.group("msg")
             else:
                 raw_hex = None
-                
+
             m = r1.search(line)
             if not m:
                 m = r2.search(line)
@@ -98,7 +99,9 @@ def submit(stream, pskreporter, mode):
     r = re.compile(
         r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[-+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
     )
-    cq = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$")
+    cq = re.compile(
+        r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
+    )
     cq2 = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) *(?P<locator>)$")
     tx2 = re.compile(
         r"(?P<their_callsign>([A-Z0-9/-]{3,})|(<\.\.\.>)) (?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
@@ -115,11 +118,11 @@ def submit(stream, pskreporter, mode):
         try:
             m = raw_bits_r.search(line)
             if m:
-                raw_hex = m.group('hex')
-                line = m.group('msg')
+                raw_hex = m.group("hex")
+                line = m.group("msg")
             else:
                 raw_hex = None
-                
+
             m = r.search(line)
             if m:
                 msg = m.group("msg")
@@ -131,7 +134,9 @@ def submit(stream, pskreporter, mode):
                     if match and match.group("locator") == "RR73":
                         match = None
                 if match:
-                    ts = datetime.strptime(m.group("ts"), "%Y/%m/%d %H:%M:%S").timestamp()
+                    ts = datetime.strptime(
+                        m.group("ts"), "%Y/%m/%d %H:%M:%S"
+                    ).timestamp()
                     snr = -int(m.group("snr"))
                     freq = float(m.group("freq").replace(",", ""))
 
@@ -146,7 +151,6 @@ def submit(stream, pskreporter, mode):
                     )
         except Exception as e:
             logging.error(f"Failed to create spot ({e}): {original_line}")
-
 
 
 if __name__ == "__main__":
@@ -175,7 +179,21 @@ if __name__ == "__main__":
     )
 
     proc = subprocess.Popen(["tail", "-F", file], stdout=subprocess.PIPE)
-    if mode == "wspr":
-        do_wspr(proc.stdout, pskreporter, mode.upper())
-    else:
-        submit(proc.stdout, pskreporter, mode.upper())
+    try:
+        if mode == "wspr":
+            do_wspr(proc.stdout, pskreporter, mode.upper())
+        else:
+            submit(proc.stdout, pskreporter, mode.upper())
+    except KeyboardInterrupt:
+        print("\nReceived Ctrl-C, shutting down gracefully...")
+    except Exception as e:
+        logging.error(f"Unexpected error: {e}")
+    finally:
+        try:
+            pskreporter.upload()
+            print("Final upload completed successfully.")
+        except Exception as e:
+            logging.error(f"Error during final upload: {e}")
+        finally:
+            proc.terminate()
+            proc.wait()

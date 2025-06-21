@@ -8,9 +8,10 @@ import socket
 SERVER_NAME = ("report.pskreporter.info", 4739)
 
 logging.basicConfig(
-        format="%(levelname)s:%(name)s:%(asctime)s %(message)s",
-        level=logging.WARNING,
-        datefmt='%Y-%m-%d %H:%M:%S')
+    format="%(levelname)s:%(name)s:%(asctime)s %(message)s",
+    level=logging.WARNING,
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 class PskReporter(object):
@@ -29,7 +30,14 @@ class PskReporter(object):
     def stop():
         [psk.cancelTimer() for psk in PskReporter.sharedInstance.values()]
 
-    def __init__(self, callsign: str, grid: str, antenna: str, dummy: bool = False, tcp: bool = False):
+    def __init__(
+        self,
+        callsign: str,
+        grid: str,
+        antenna: str,
+        dummy: bool = False,
+        tcp: bool = False,
+    ):
         self.spots = []
         self.oldSpots = {}  # Indexed by timestamp
         self.spotLock = threading.Lock()
@@ -75,7 +83,16 @@ class PskReporter(object):
             self.oldSpots[ts] = []
         self.oldSpots[ts].append(spot)
 
-    def spot(self, callsign, frequency, mode, timestamp=0, db=None, locator=None, hexbytes=None):
+    def spot(
+        self,
+        callsign,
+        frequency,
+        mode,
+        timestamp=0,
+        db=None,
+        locator=None,
+        hexbytes=None,
+    ):
         if not timestamp:
             timestamp = time.time()
 
@@ -86,7 +103,7 @@ class PskReporter(object):
             "freq": frequency,
             "db": -128 if db is None else db,
             "timestamp": timestamp,
-            "bytes": bytes.fromhex(hexbytes or ''),
+            "bytes": bytes.fromhex(hexbytes or ""),
         }
         if self.dummy:
             print(spot)
@@ -109,11 +126,13 @@ class PskReporter(object):
                 self.spots = []
             if spots:
                 # Filter out very old spots
-                cutoff = time.time() - 3000;
+                cutoff = time.time() - 3000
                 spot_count = len(spots)
                 spots = [x for x in spots if x["timestamp"] >= cutoff]
                 if len(spots) < spot_count:
-                    logging.warning(f"Dropping {spot_count - len(spots)} spots as too old (without connectivity). {len(spots)} left.")
+                    logging.warning(
+                        f"Dropping {spot_count - len(spots)} spots as too old (without connectivity). {len(spots)} left."
+                    )
                 unsent = self.uploader.upload(spots)
                 if unsent:
                     # We want to save these for later
@@ -138,7 +157,7 @@ class Uploader(object):
         # logging.debug("Station: %s", self.station)
         self.sequence = 0
         if tcp:
-            self.upload = self.tcp_upload 
+            self.upload = self.tcp_upload
             self.socket = None
         else:
             self.upload = self.udp_upload
@@ -165,7 +184,9 @@ class Uploader(object):
                     if not self.socket:
                         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                         self.socket.connect(SERVER_NAME)
-                        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+                        self.socket.setsockopt(
+                            socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1
+                        )
                         self.socket_connected = True
 
                     self.socket.send(packet)
@@ -176,10 +197,12 @@ class Uploader(object):
                     self.socket.close()
                     self.socket = None
             else:
-                failed_to_send.extend(chunk);
+                failed_to_send.extend(chunk)
 
         if failed_to_send:
-            logging.warning(f"Failed to send {len(failed_to_send)} spots. Will retry later.")
+            logging.warning(
+                f"Failed to send {len(failed_to_send)} spots. Will retry later."
+            )
         return failed_to_send
 
     def getPackets(self, spots, max_packet_length: int = 1400):
@@ -217,7 +240,10 @@ class Uploader(object):
             sInfo = self.getSenderInformation(chunk)
             length = header_length + len(sInfo)
             header = self.getHeader(length)
-            yield header + rHeader + sHeader + rInfo + sInfo, [to_spot[item] for item in chunk]
+            yield (
+                header + rHeader + sHeader + rInfo + sInfo,
+                [to_spot[item] for item in chunk],
+            )
 
     def getHeader(self, length):
         return bytes(
@@ -275,16 +301,20 @@ class Uploader(object):
     def getReceiverInformation(self):
         callsign = self.station["callsign"]
         locator = self.station["grid"]
-        antennaInformation = self.station["antenna"] if "antenna" in self.station else ""
+        antennaInformation = (
+            self.station["antenna"] if "antenna" in self.station else ""
+        )
         decodingSoftware = "N1DQ-KA9Q-Radio/1.1"
 
         body = [
             b
             for s in [callsign, locator, decodingSoftware, antennaInformation]
-            for b in self.encodeString(s or '')
+            for b in self.encodeString(s or "")
         ]
         body = self.pad(body, 4)
-        body = bytes(Uploader.receiverDelimiter + list((len(body) + 4).to_bytes(2, "big")) + body)
+        body = bytes(
+            Uploader.receiverDelimiter + list((len(body) + 4).to_bytes(2, "big")) + body
+        )
         return body
 
     def getSenderInformationHeader(self):
@@ -322,5 +352,3 @@ class Uploader(object):
 
     def padBytes(self, b, l):
         return b + bytes([0x00 for _ in range(0, -1 * len(b) % l)])
-
-
