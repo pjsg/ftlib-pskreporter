@@ -151,6 +151,8 @@ class PskReporter(object):
     def close(self):
         self.cancelTimer()
         self.upload()
+        if self.spots:
+            logging.warning(f"Failed to upload {len(self.spots)} spots on close")
 
 
 class Uploader(object):
