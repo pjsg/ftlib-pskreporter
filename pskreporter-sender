@@ -22,6 +22,7 @@ import subprocess
 from docopt import docopt
 import sys
 import logging
+import signal
 
 
 def get_unix_timestamp(hhmm: str) -> int:
@@ -179,6 +180,15 @@ if __name__ == "__main__":
     )
 
     proc = subprocess.Popen(["tail", "-F", file], stdout=subprocess.PIPE)
+
+    # Set up signal handlers for graceful shutdown
+    def signal_handler(signum, frame):
+        print(f"\nReceived signal {signum}, shutting down gracefully...")
+        raise KeyboardInterrupt
+
+    signal.signal(signal.SIGTERM, signal_handler)
+    signal.signal(signal.SIGINT, signal_handler)
+
     try:
         if mode == "wspr":
             do_wspr(proc.stdout, pskreporter, mode.upper())
