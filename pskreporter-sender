@@ -171,6 +171,12 @@ if __name__ == "__main__":
     if not mode:
         sys.exit("Need to provide the mode argument")
 
+    if not args["--callsign"]:
+        sys.exit("Need to provide the callsign argument")
+
+    if not args["--locator"]:
+        sys.exit("Need to provide the locator argument")
+
     pskreporter = PskReporter(
         callsign=args["--callsign"].upper(),
         grid=args["--locator"],
