@@ -133,11 +133,12 @@ class PskReporter(object):
                     logging.warning(
                         f"Dropping {spot_count - len(spots)} spots as too old (without connectivity). {len(spots)} left."
                     )
-                unsent = self.uploader.upload(spots)
-                if unsent:
-                    # We want to save these for later
-                    with self.spotLock:
-                        self.spots = unsent + self.spots
+                if spots:
+                    unsent = self.uploader.upload(spots)
+                    if unsent:
+                        # We want to save these for later
+                        with self.spotLock:
+                            self.spots = unsent + self.spots
         except Exception:
             logging.exception("Failed to upload spots")
 
@@ -146,6 +147,10 @@ class PskReporter(object):
             self.timer.cancel()
             self.timer.join()
         self.timer = None
+
+    def close(self):
+        self.cancelTimer()
+        self.upload()
 
 
 class Uploader(object):

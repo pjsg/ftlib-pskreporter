@@ -195,15 +195,20 @@ if __name__ == "__main__":
         else:
             submit(proc.stdout, pskreporter, mode.upper())
     except KeyboardInterrupt:
-        print("\nReceived Ctrl-C, shutting down gracefully...")
+        pass
     except Exception as e:
         logging.error(f"Unexpected error: {e}")
     finally:
+        # Disable signal handlers during cleanup to prevent threading issues
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
+        signal.signal(signal.SIGINT, signal.SIG_DFL)
+
         try:
-            pskreporter.upload()
+            pskreporter.close()
             print("Final upload completed successfully.")
         except Exception as e:
             logging.error(f"Error during final upload: {e}")
         finally:
             proc.terminate()
             proc.wait()
+            sys.exit(0)
