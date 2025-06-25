@@ -157,7 +157,7 @@ class PskReporter(object):
         self.upload()
         if self.spots:
             logging.warning(f"Failed to upload {len(self.spots)} spots on close")
-        logging.warning("Uploaded {self.total_spots} spots total")
+        logging.warning(f"Uploaded {self.total_spots} spots total")
 
 
 class Uploader(object):
