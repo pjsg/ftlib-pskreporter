@@ -45,6 +45,8 @@ class PskReporter(object):
         self.uploader = Uploader(self.station, tcp=tcp)
         self.timer = None
         self.dummy = dummy
+        self.total_spots = 0
+        
 
     def getOldSpots(self):
         cutoff = time.time() - 1200
@@ -134,8 +136,10 @@ class PskReporter(object):
                         f"Dropping {spot_count - len(spots)} spots as too old (without connectivity). {len(spots)} left."
                     )
                 if spots:
+                    self.total_spots += len(spots)
                     unsent = self.uploader.upload(spots)
                     if unsent:
+                        self.total_spots -= len(unsent)
                         # We want to save these for later
                         with self.spotLock:
                             self.spots = unsent + self.spots
@@ -153,6 +157,7 @@ class PskReporter(object):
         self.upload()
         if self.spots:
             logging.warning(f"Failed to upload {len(self.spots)} spots on close")
+        logging.warning("Uploaded {self.total_spots} spots total")
 
 
 class Uploader(object):

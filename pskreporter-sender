@@ -17,7 +17,7 @@ Options:
 
 from pskreporter import PskReporter
 import re
-from datetime import datetime, time
+from datetime import datetime, time, timezone
 import subprocess
 from docopt import docopt
 import sys
@@ -156,6 +156,8 @@ def submit(stream, pskreporter, mode):
 
 if __name__ == "__main__":
     args = docopt(__doc__)
+
+    logging.warning(f"Starting pskreporter-sender with args {args}")
 
     file = args["<logfile>"]
     mode = args["<mode>"]
