@@ -316,7 +316,7 @@ class Uploader(object):
         antennaInformation = (
             self.station["antenna"] if "antenna" in self.station else ""
         )
-        decodingSoftware = "N1DQ-KA9Q-Radio/1.1"
+        decodingSoftware = "N1DQ-KA9Q-Radio/1.2"
 
         body = [
             b
