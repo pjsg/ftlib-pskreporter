@@ -27,7 +27,7 @@ import signal
 
 def get_unix_timestamp(hhmm: str) -> int:
     # Get the current date and time
-    now = datetime.now()
+    now = datetime.now(timezone.utc)
     today = now.date()
 
     # Parse the HHMM string
@@ -35,7 +35,7 @@ def get_unix_timestamp(hhmm: str) -> int:
     minutes = int(hhmm[2:])
 
     # Create a datetime object for today at the specified time
-    specified_time = datetime.combine(today, time(hours, minutes))
+    specified_time = datetime.combine(today, time(hours, minutes)).replace(tzinfo=timezone.utc)
 
     # If the specified time is in the future, move to the previous day
     if specified_time > now:
@@ -137,7 +137,7 @@ def submit(stream, pskreporter, mode):
                 if match:
                     ts = datetime.strptime(
                         m.group("ts"), "%Y/%m/%d %H:%M:%S"
-                    ).timestamp()
+                    ).replace(tzinfo=timezone.utc).timestamp()
                     snr = -int(m.group("snr"))
                     freq = float(m.group("freq").replace(",", ""))
 
