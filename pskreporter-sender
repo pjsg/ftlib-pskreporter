@@ -101,11 +101,11 @@ def submit(stream, pskreporter, mode):
         r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[-+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
     )
     cq = re.compile(
-        r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
+        r"CQ (DX )?(?P<callsign>[A-Z0-9][A-Z0-9/-]+[A-Z0-9]) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
     )
-    cq2 = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9/-]{3,}) *(?P<locator>)$")
+    cq2 = re.compile(r"CQ (DX )?(?P<callsign>[A-Z0-9][A-Z0-9/-]+[A-Z0-9]) *(?P<locator>)$")
     tx2 = re.compile(
-        r"(?P<their_callsign>([A-Z0-9/-]{3,})|(<\.\.\.>)) (?P<callsign>[A-Z0-9/-]{3,}) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
+        r"(?P<their_callsign>([A-Z0-9][A-Z0-9/-]+[A-Z0-9])|(<\.\.\.>)) (?P<callsign>[A-Z0-9][A-Z0-9/-]+[A-Z0-9]) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
     )
     raw_bits_r = re.compile(r"^(?P<msg>.*?)\s+#(?P<hex>[0-9a-fA-F]{16,})")
     for line in stream:
