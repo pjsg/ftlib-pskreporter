@@ -90,8 +90,8 @@ def do_wspr(stream, pskreporter, mode):
                     locator=m.group("locator"),
                     hexbytes=raw_hex,
                 )
-            elif not line.startswith(b"<Decode"):
-                print(line)
+            elif not line.startswith("<Decode"):
+                print(f"Failed to parse: {original_line}")
         except Exception as e:
             logging.error(f"Failed to create spot ({e}): {original_line}")
 
