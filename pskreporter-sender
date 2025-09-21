@@ -97,8 +97,9 @@ def do_wspr(stream, pskreporter, mode):
 
 
 def submit(stream, pskreporter, mode):
+    # It turns out that the field that I thought was snr is actually a score and is fairly unrelated to snr.
     r = re.compile(
-        r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-0-9]+) +(?P<dt>[-+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
+        r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<score>[-0-9]+) +(?P<dt>[-+.0-9]+) (?P<freq>[0-9,.]+) ~ (?P<msg>.*)$"
     )
     cq = re.compile(
         r"CQ (DX )?(?P<callsign>[A-Z0-9][A-Z0-9/-]+[A-Z0-9]) (?P<locator>[A-Z][A-Z][0-9][0-9]) *$"
@@ -138,7 +139,6 @@ def submit(stream, pskreporter, mode):
                     ts = datetime.strptime(
                         m.group("ts"), "%Y/%m/%d %H:%M:%S"
                     ).replace(tzinfo=timezone.utc).timestamp()
-                    snr = -int(m.group("snr"))
                     freq = float(m.group("freq").replace(",", ""))
 
                     pskreporter.spot(
@@ -146,7 +146,6 @@ def submit(stream, pskreporter, mode):
                         mode=mode,
                         timestamp=ts,
                         frequency=freq,
-                        db=snr,
                         locator=match.group("locator"),
                         hexbytes=raw_hex,
                     )
