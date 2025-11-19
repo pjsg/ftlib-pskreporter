@@ -140,6 +140,7 @@ def submit(stream, pskreporter, mode):
                         m.group("ts"), "%Y/%m/%d %H:%M:%S"
                     ).replace(tzinfo=timezone.utc).timestamp()
                     freq = float(m.group("freq").replace(",", ""))
+                    dt = float(m.group('dt'))
 
                     pskreporter.spot(
                         callsign=match.group("callsign"),
@@ -148,6 +149,7 @@ def submit(stream, pskreporter, mode):
                         frequency=freq,
                         locator=match.group("locator"),
                         hexbytes=raw_hex,
+                        dt=dt*1000,
                     )
         except Exception as e:
             logging.error(f"Failed to create spot ({e}): {original_line}")
