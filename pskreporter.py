@@ -7,6 +7,8 @@ import socket
 
 SERVER_NAME = ("report.pskreporter.info", 4739)
 
+LOG_ALL_FT8_INTERVAL = 900
+
 logging.basicConfig(
     format="%(levelname)s:%(name)s:%(asctime)s %(message)s",
     level=logging.WARNING,
@@ -69,6 +71,12 @@ class PskReporter(object):
     def spotEquals(self, s1, s2):
         # s1 is the new spot
         keys = ["callsign", "timestamp", "locator", "db", "freq", "mode"]
+
+        # Cheat mode to send all reports so we can get location data
+        if mode == "FT8":
+            offset = s1["timestamp"] % LOG_ALL_FT8_INTERVAL
+            if offset < 20:
+                return False
 
         return (
             s1["callsign"] == s2["callsign"]
