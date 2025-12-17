@@ -8,6 +8,7 @@ import socket
 SERVER_NAME = ("report.pskreporter.info", 4739)
 
 LOG_ALL_FT8_INTERVAL = 900
+LOG_ALL_OFFSET = 30
 
 logging.basicConfig(
     format="%(levelname)s:%(name)s:%(asctime)s %(message)s",
@@ -72,22 +73,32 @@ class PskReporter(object):
         # s1 is the new spot
         keys = ["callsign", "timestamp", "locator", "db", "freq", "mode"]
 
-        # Cheat mode to send all reports so we can get location data
-        if mode == "FT8":
-            offset = s1["timestamp"] % LOG_ALL_FT8_INTERVAL
-            if offset < 20:
-                return False
-
-        return (
+        is_equal = (
             s1["callsign"] == s2["callsign"]
             and abs(s1["timestamp"] - s2["timestamp"]) < 1200
             and (s1["locator"] == s2["locator"] or not s1["locator"])
             and abs(s1["freq"] - s2["freq"]) < 10000
             and s1["mode"] == s2["mode"]
+            and not s2.get("cheat", False)
         )
+
+        if not is_equal:
+           return False
+
+        # Cheat mode to send all reports so we can get location data
+        if s1["mode"] == "FT8":
+            offset = (s1["timestamp"] % LOG_ALL_FT8_INTERVAL) - LOG_ALL_OFFSET
+            if offset >= 0 and offset < 20:
+                s1["cheat"] = True
+                return False
+
+        return True
 
     def addSpot(self, spot):
         self.spots.append(spot)
+        self.addOldSpot(spot)
+
+    def addOldSpot(self, spot):
         ts = spot["timestamp"]
         if ts not in self.oldSpots:
             self.oldSpots[ts] = []
@@ -117,18 +128,19 @@ class PskReporter(object):
             "bytes": bytes.fromhex(hexbytes or ""),
             "dt": -32768 if dt is None else dt,
         }
-        if self.dummy:
-            print(spot)
-            return
-
         with self.spotLock:
-            if any(x for x in self.getOldSpots() if self.spotEquals(spot, x)):
-                # dupe
-                pass
-            else:
+            is_dupe = any(x for x in self.getOldSpots() if self.spotEquals(spot, x))
+
+            if self.dummy:
+                print("dupe" if is_dupe else "new", spot)
+                if not is_dupe:
+                    self.addOldSpot(spot)
+                return
+
+            if not is_dupe:
                 self.addSpot(spot)
 
-            self.scheduleNextUpload()
+                self.scheduleNextUpload()
 
     def upload(self):
         try:
