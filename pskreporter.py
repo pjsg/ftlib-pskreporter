@@ -13,6 +13,9 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+REPORT_ALL_INTERVAL = 1200
+REPORT_ALL_FOR = 59
+
 
 class PskReporter(object):
     sharedInstance = {}
@@ -109,18 +112,22 @@ class PskReporter(object):
             "bytes": bytes.fromhex(hexbytes or ""),
             "dt": -32768 if dt is None else dt,
         }
+        spot["upload_all"] = self.upload_all(spot)
         if self.dummy:
             print(spot)
             return
 
         with self.spotLock:
-            if any(x for x in self.getOldSpots() if self.spotEquals(spot, x)):
+            if not spot["upload_all"] and any(x for x in self.getOldSpots() if self.spotEquals(spot, x)):
                 # dupe
                 pass
             else:
                 self.addSpot(spot)
 
             self.scheduleNextUpload()
+
+    def upload_all(self, spot) -> bool:
+        return spot["timestamp"] % REPORT_ALL_INTERVAL < REPORT_ALL_FOR
 
     def upload(self):
         try:
