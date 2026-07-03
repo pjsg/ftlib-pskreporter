@@ -5,6 +5,8 @@ import time
 import random
 import socket
 
+from typing import Optional
+
 SERVER_NAME = ("report.pskreporter.info", 4739)
 
 logging.basicConfig(
@@ -38,13 +40,14 @@ class PskReporter(object):
         callsign: str,
         grid: str,
         antenna: str,
+        software: Optional[str] = None,
         dummy: bool = False,
         tcp: bool = False,
     ):
         self.spots = []
         self.oldSpots = {}  # Indexed by timestamp
         self.spotLock = threading.Lock()
-        self.station = {"callsign": callsign, "grid": grid, "antenna": antenna}
+        self.station = {"callsign": callsign, "grid": grid, "antenna": antenna, "software": software}
         self.uploader = Uploader(self.station, tcp=tcp)
         self.timer = None
         self.dummy = dummy
@@ -97,7 +100,6 @@ class PskReporter(object):
         db=None,
         locator=None,
         hexbytes=None,
-        dt=None,
     ):
         if not timestamp:
             timestamp = time.time()
@@ -110,7 +112,6 @@ class PskReporter(object):
             "db": -128 if db is None else db,
             "timestamp": timestamp,
             "bytes": bytes.fromhex(hexbytes or ""),
-            "dt": -32768 if dt is None else dt,
         }
         spot["upload_all"] = self.upload_all(spot)
         if self.dummy:
@@ -295,7 +296,6 @@ class Uploader(object):
                 + [0x01]
                 + list(int(spot["timestamp"]).to_bytes(4, "big"))
                 + self.encodeBytes(spot["bytes"])
-                + list(int(spot["dt"]).to_bytes(2, "big", signed=True))
             )
         except Exception:
             logging.exception("Error while encoding spot for pskreporter")
@@ -326,7 +326,7 @@ class Uploader(object):
         antennaInformation = (
             self.station["antenna"] if "antenna" in self.station else ""
         )
-        decodingSoftware = "N1DQ-KA9Q-Radio/1.4"
+        decodingSoftware = self.station.get("software", "N1DQ-KA9Q-Radio/1.4")
 
         body = [
             b
@@ -342,10 +342,10 @@ class Uploader(object):
     def getSenderInformationHeader(self):
         return bytes(
             # id, length
-            [0x00, 0x02, 0x00, 0x4C]
+            [0x00, 0x02, 0x00, 0x44]
             + Uploader.senderDelimiter
             # number of fields
-            + [0x00, 0x09]
+            + [0x00, 0x08]
             # senderCallsign
             + [0x80, 0x01, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F]
             # frequency
@@ -362,8 +362,6 @@ class Uploader(object):
             + [0x00, 0x96, 0x00, 0x04]
             # messageBits
             + [0x80, 0x0E, 0xFF, 0xFF, 0x00, 0x00, 0x76, 0x8F]
-            # deltaT
-            + [0x80, 0x0F, 0x00, 0x02, 0x00, 0x00, 0x76, 0x8F]
         )
 
     def getSenderInformation(self, chunk):
