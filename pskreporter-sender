@@ -48,6 +48,46 @@ def get_unix_timestamp(hhmm: str) -> int:
     return unix_timestamp
 
 
+def do_js8(stream, pskreporter, mode):
+    r1 = re.compile(
+        r"(?P<ts>[0-9/]+ [0-9:]+) +(?P<snr>[-.0-9]+) +(?P<dt>[-.0-9]+) +(?P<js8mode>\w) +(?P<freq>[0-9.]+) +<?(?P<callsign>[A-Z0-9][A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) [\~]+ (?P<msg>.*$)"
+    )
+    
+    for line in stream:
+        # 2025/10/30 17:47:30 -20.0  0.3 A  7.080208  KD6XU/MM RG85 ~ KDVVV/MM:
+        # 2025/10/30 19:53:45 -11.0  0.1 A   7.07886    VK1AAH QF44 ~ VK1XXX: HB QG44
+
+        original_line = line.decode("utf-8").rstrip()
+
+        line = original_line
+
+        try:
+            raw_hex = None
+
+            m = r1.search(line)
+            
+            if m:
+                ts = datetime.strptime(
+                        m.group("ts"), "%Y/%m/%d %H:%M:%S"
+                    ).replace(tzinfo=timezone.utc).timestamp()
+                      
+                snr = int(float(m.group("snr")))
+                freq = 1000000.0 * float(m.group("freq"))
+
+                pskreporter.spot(
+                    callsign=m.group("callsign"),
+                    mode=mode,
+                    timestamp=ts,
+                    frequency=freq,
+                    db=snr,
+                    locator=m.group("locator"),
+                    hexbytes=raw_hex,
+                )
+            elif not line.startswith("<Decode"):
+                print(f"Failed to parse: {original_line}")
+        except Exception as e:
+            logging.error(f"Failed to create spot ({e}): {original_line}")
+
 def do_wspr(stream, pskreporter, mode):
     r1 = re.compile(
         r"(?P<ts>[0-9]{4}) +(?P<snr>[-0-9]+) +(?P<u2>[-.0-9]+) +(?P<freq>[0-9.]+) +(?P<u3>[-.0-9]+) +<?(?P<callsign>[A-Z0-9][A-Z0-9/-]+)>? +(?P<locator>[A-Z0-9]+) +(?P<power>[0-9]+) *$"
@@ -202,6 +242,8 @@ if __name__ == "__main__":
     try:
         if mode == "wspr":
             do_wspr(proc.stdout, pskreporter, mode.upper())
+        elif mode == "js8":
+            do_js8(proc.stdout, pskreporter, mode.upper())
         else:
             submit(proc.stdout, pskreporter, mode.upper())
     except KeyboardInterrupt:
